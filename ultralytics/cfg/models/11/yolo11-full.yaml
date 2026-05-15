@@ -1,0 +1,45 @@
+# Ultralytics YOLO11 完整创新配置
+# GL-SIM (GCAM + LHDE + DCRN) + RAC-Net (C3k2_PConv)
+# 全部创新点启用
+
+nc: 80
+scales:
+  n: [0.50, 0.25, 1024]
+  s: [0.50, 0.50, 1024]
+  m: [0.50, 1.00, 512]
+  l: [1.00, 1.00, 512]
+  x: [1.00, 1.50, 512]
+
+backbone:
+  - [-1, 1, Conv, [64, 3, 2]] # 0-P1/2
+  - [-1, 1, Conv, [128, 3, 2]] # 1-P2/4
+  - [-1, 2, C3k2_PConv, [256, 4, 0.25, False]] # 2 - RAC-Net
+  - [-1, 1, Conv, [256, 3, 2]] # 3-P3/8
+  - [-1, 2, C3k2_PConv, [512, 4, 0.25, False]] # 4 - RAC-Net
+  - [-1, 1, Conv, [512, 3, 2]] # 5-P4/16
+  - [-1, 2, C3k2_PConv, [512, 4, 0.5, True]] # 6 - RAC-Net
+  - [-1, 1, Conv, [1024, 3, 2]] # 7-P5/32
+  - [-1, 2, C3k2_PConv, [1024, 4, 0.5, True]] # 8 - RAC-Net
+  - [-1, 1, SPPF, [1024, 5]] # 9
+  - [-1, 1, GCAM, [1024]] # 10 - GL-SIM 全局掩码器
+
+head:
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]
+  - [[-1, 6], 1, Concat, [1]]
+  - [-1, 2, C3k2_PConv, [512, 4, 0.5, False]] # 13 - RAC-Net
+
+  - [-1, 1, nn.Upsample, [None, 2, "nearest"]]
+  - [[-1, 4], 1, Concat, [1]]
+  - [-1, 2, C3k2_PConv, [256, 4, 0.5, False]] # 16 (P3/8-small) - RAC-Net
+  - [-1, 1, LHDE, [256]] # 17 - GL-SIM 高频提取器
+
+  - [-1, 1, Conv, [256, 3, 2]]
+  - [[-1, 13], 1, Concat, [1]]
+  - [-1, 2, C3k2_PConv, [512, 4, 0.5, False]] # 20 (P4/16-medium) - RAC-Net
+  - [-1, 1, DCRN, [512]] # 21 - GL-SIM 动态路由
+
+  - [-1, 1, Conv, [512, 3, 2]]
+  - [[-1, 10], 1, Concat, [1]]
+  - [-1, 2, C3k2_PConv, [1024, 4, 0.5, True]] # 24 (P5/32-large) - RAC-Net
+
+  - [[17, 21, 24], 1, Detect, [nc]]
