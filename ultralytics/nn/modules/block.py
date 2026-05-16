@@ -2128,8 +2128,9 @@ class GCAM(nn.Module):
         # 恢复通道的 1x1 卷积
         self.cv_out = Conv(c1, c2, 1, 1)
 
-        # 可学习的残差缩放因子，初始化为 0（确保早期训练稳定）
-        self.gamma = nn.Parameter(torch.zeros(1))
+        # 可学习的残差缩放因子，初始化为 0.1（确保早期即可参与特征调制）
+        self.gamma = nn.Parameter(torch.tensor(0.1))
+        self.mask = None  # 存储全局掩码，供下游 DCRN 使用
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """前向传播。
@@ -2151,6 +2152,7 @@ class GCAM(nn.Module):
 
         # 融合生成全局空间掩码 (B, 1, H, W)
         mask = self.fuse(torch.cat(pooled, dim=1))
+        self.mask = mask  # 存储供 DCRN 使用
 
         # 残差调制: output = x + gamma * (mask * x)
         out = x + self.gamma * (mask * x)
@@ -2233,26 +2235,28 @@ class DCRN(nn.Module):
 
     GL-SIM 的核心枢纽，位于特征金字塔网络中深层语义向浅层细节
     进行跨尺度融合的关键节点。
-    引入动态门控路由机制：通过双路径注意力生成空间调制权重，
-    对高频特征执行基于哈达玛积的动态调制。
-
-    设计为独立模块，不依赖外部 GCAM 引用，兼容 EMA 和 deepcopy。
+    引入动态门控路由机制：接收 GCAM 生成的全局掩码，通过双线性插值
+    对齐至当前分辨率，与局部细节注意力融合后对输入特征执行哈达玛积调制。
 
     Args:
         c1 (int): 输入通道数。
         c2 (int): 输出通道数。
+        gc_module: GCAM 模块引用，用于获取全局掩码。为 None 时使用独立全局路径。
     """
 
-    def __init__(self, c1: int, c2: int):
+    def __init__(self, c1: int, c2: int, gc_module=None):
         super().__init__()
-        # 全局上下文路径: 全局平均池化 → 通道压缩 → 空间权重
-        self.global_path = nn.Sequential(
-            nn.AdaptiveAvgPool2d(1),
-            nn.Conv2d(c1, c1 // 4, 1, bias=False),
-            nn.BatchNorm2d(c1 // 4),
-            nn.SiLU(),
-            nn.Conv2d(c1 // 4, 1, 1, bias=False),
-        )
+        self.gc_module = gc_module
+
+        # 独立全局路径（仅在无 GCAM 引用时使用）
+        if gc_module is None:
+            self.global_path = nn.Sequential(
+                nn.AdaptiveAvgPool2d(1),
+                nn.Conv2d(c1, c1 // 4, 1, bias=False),
+                nn.BatchNorm2d(c1 // 4),
+                nn.SiLU(),
+                nn.Conv2d(c1 // 4, 1, 1, bias=False),
+            )
 
         # 局部细节路径: 3x3 卷积 → 空间权重
         self.local_path = nn.Sequential(
@@ -2268,8 +2272,8 @@ class DCRN(nn.Module):
         # 输出通道对齐
         self.cv_out = Conv(c1, c2, 1, 1)
 
-        # 可学习的残差缩放因子，初始化为 0（防止梯度死亡）
-        self.gamma = nn.Parameter(torch.zeros(1))
+        # 可学习的残差缩放因子，初始化为 0.1（确保早期即可参与特征调制）
+        self.gamma = nn.Parameter(torch.tensor(0.1))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """前向传播。
@@ -2280,8 +2284,16 @@ class DCRN(nn.Module):
         Returns:
             经动态路由调制后的特征 (B, C2, H, W)。
         """
-        # 全局上下文注意力 (B, 1, H, W)
-        global_attn = torch.sigmoid(self.global_path(x))
+        B, C, H, W = x.shape
+
+        # 全局上下文注意力: 优先使用 GCAM 掩码，否则用独立路径
+        if self.gc_module is not None and self.gc_module.mask is not None:
+            gc_mask = self.gc_module.mask  # (B, 1, h, w) - GCAM 层的分辨率
+            if gc_mask.shape[2:] != (H, W):
+                gc_mask = F.interpolate(gc_mask, size=(H, W), mode="bilinear", align_corners=False)
+            global_attn = gc_mask  # 已经是 [0,1] 范围（GCAM 用了 Sigmoid）
+        else:
+            global_attn = torch.sigmoid(self.global_path(x))
 
         # 局部细节注意力 (B, 1, H, W)
         local_attn = torch.sigmoid(self.local_path(x))
@@ -2290,7 +2302,7 @@ class DCRN(nn.Module):
         w = torch.sigmoid(self.fuse_weight)
         combined_gate = w * global_attn + (1 - w) * local_attn
 
-        # 动态调制 + 残差连接（gamma 初始化为 0 确保早期稳定）
+        # 动态调制 + 残差连接
         out = x + self.gamma * (combined_gate * x)
         return self.cv_out(out)
 

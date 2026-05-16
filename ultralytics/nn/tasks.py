@@ -1768,6 +1768,12 @@ def parse_model(d, ch, verbose=True):
         t = str(m)[8:-2].replace("__main__.", "")  # module type
         m_.np = sum(x.numel() for x in m_.parameters())  # number params
         m_.i, m_.f, m_.type = i, f, t  # attach index, 'from' index, type
+        # DCRN-GCAM 协同连接: 自动查找前序 GCAM 模块并注入引用
+        if m is DCRN and getattr(m_, "gc_module", None) is None:
+            for prev in reversed(layers):
+                if isinstance(prev, GCAM):
+                    m_.gc_module = prev
+                    break
         if verbose:
             LOGGER.info(f"{i:>3}{f!s:>20}{n_:>3}{m_.np:10.0f}  {t:<45}{args!s:<30}")  # print
         save.extend(x % i for x in ([f] if isinstance(f, int) else f) if x != -1)  # append to savelist
