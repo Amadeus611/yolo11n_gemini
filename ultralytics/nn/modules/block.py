@@ -2152,7 +2152,7 @@ class GCAM(nn.Module):
 
         # 融合生成全局空间掩码 (B, 1, H, W)
         mask = self.fuse(torch.cat(pooled, dim=1))
-        self.mask = mask  # 存储供 DCRN 使用
+        self.mask = mask.detach()  # 存储供 DCRN 使用（detach 避免 deepcopy 报错）
 
         # 残差调制: output = x + gamma * (mask * x)
         out = x + self.gamma * (mask * x)
