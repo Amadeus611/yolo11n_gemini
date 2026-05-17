@@ -126,7 +126,7 @@ def main():
             box=7.5,
             cls=0.5,
             dfl=1.5,
-            cls_pw=0.25,  # 类别平衡: 温和的逆频率加权 (bus ≈ 3.5x car)
+            cls_pw=0.3,  # 类别平衡: 温和的逆频率加权 (bus ≈ 3.5x car)
 
             # --- DS-NIM ---
             use_dsnim=exp["use_dsnim"],
