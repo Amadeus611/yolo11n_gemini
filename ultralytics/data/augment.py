@@ -1817,7 +1817,22 @@ class CopyPaste(BaseMixTransform):
         n = len(indexes)
         sorted_idx = np.argsort(ioa.max(1)[indexes])
         indexes = indexes[sorted_idx]
-        selected = indexes[: round(self.p * n)]
+
+        # 优先选择 bus 类别（cls_id=1），因为 bus 的 mAP 最低
+        if hasattr(instances2, 'cls') and len(instances2.cls) > 0:
+            bus_indexes = [i for i in indexes if int(instances2.cls[i]) == 1]
+            other_indexes = [i for i in indexes if int(instances2.cls[i]) != 1]
+
+            if bus_indexes:
+                # 选择 70% 的 bus 实例和 30% 的其他实例
+                n_total = round(self.p * n)
+                n_bus = min(len(bus_indexes), max(1, round(n_total * 0.7)))
+                n_other = min(len(other_indexes), n_total - n_bus)
+                selected = list(bus_indexes[:n_bus]) + list(other_indexes[:n_other])
+            else:
+                selected = indexes[: round(self.p * n)]
+        else:
+            selected = indexes[: round(self.p * n)]
 
         im_new = np.zeros((h, w), np.uint8)
 

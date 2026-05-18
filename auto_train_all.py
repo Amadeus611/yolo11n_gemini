@@ -139,7 +139,7 @@ def main():
             mosaic=1.0,
             close_mosaic=40,
             mixup=0.0,
-            copy_paste=0.0,
+            copy_paste=0.3,  # 启用 CopyPaste 增强，侧重 bus 类别
             degrees=25.0,
             scale=0.3,
             translate=0.1,

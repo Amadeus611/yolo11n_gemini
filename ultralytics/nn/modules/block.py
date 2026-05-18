@@ -2,6 +2,7 @@
 """Block modules."""
 
 from __future__ import annotations
+from copy import deepcopy
 
 import torch
 import torch.nn as nn
@@ -2128,8 +2129,8 @@ class GCAM(nn.Module):
         # 恢复通道的 1x1 卷积
         self.cv_out = Conv(c1, c2, 1, 1)
 
-        # 可学习的残差缩放因子，初始化为 0.1（确保早期即可参与特征调制）
-        self.gamma = nn.Parameter(torch.tensor(0.1))
+        # 可学习的残差缩放因子，初始化为 0.05（更温和的初始值）
+        self.gamma = nn.Parameter(torch.tensor(0.05))
         self.mask = None  # 存储全局掩码，供下游 DCRN 使用
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -2152,11 +2153,24 @@ class GCAM(nn.Module):
 
         # 融合生成全局空间掩码 (B, 1, H, W)
         mask = self.fuse(torch.cat(pooled, dim=1))
-        self.mask = mask.detach()  # 存储供 DCRN 使用（detach 避免 deepcopy 报错）
+        self.mask = mask  # 存储供 DCRN 使用（不使用 detach，允许梯度回传）
 
         # 残差调制: output = x + gamma * (mask * x)
         out = x + self.gamma * (mask * x)
         return self.cv_out(out)
+
+    def __deepcopy__(self, memo):
+        """自定义 deepcopy，避免 mask 引用问题。"""
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            if k == 'mask':
+                # mask 不参与 deepcopy，保持为 None
+                setattr(result, k, None)
+            else:
+                setattr(result, k, deepcopy(v, memo))
+        return result
 
 
 class LHDE(nn.Module):
@@ -2272,8 +2286,8 @@ class DCRN(nn.Module):
         # 输出通道对齐
         self.cv_out = Conv(c1, c2, 1, 1)
 
-        # 可学习的残差缩放因子，初始化为 0.1（确保早期即可参与特征调制）
-        self.gamma = nn.Parameter(torch.tensor(0.1))
+        # 可学习的残差缩放因子，初始化为 0.05（更温和的初始值）
+        self.gamma = nn.Parameter(torch.tensor(0.05))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """前向传播。
