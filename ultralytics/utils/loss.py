@@ -1443,8 +1443,8 @@ class BboxLossDSNIM(nn.Module):
         nwd_weight: float = 1.0,
         inner_mpdiou_weight: float = 1.0,
         inner_ratio: float = 0.3,
-        alpha_start: float = 0.8,
-        alpha_end: float = 0.2,
+        alpha_start: float = 0.2,
+        alpha_end: float = 0.8,
     ):
         super().__init__()
         self.dfl_loss = DFLoss(reg_max) if reg_max > 1 else None

@@ -41,7 +41,7 @@ def main():
         {
             "yaml": "ultralytics/cfg/models/11/yolo11-glam.yaml",
             "name": "Exp05_GL_SIM_Full",
-            "use_dsnim": False,
+            "use_dsnim": True,
         },
 
         # =====================================================
@@ -65,11 +65,11 @@ def main():
         # # =====================================================
         # # Table 4: 全部创新启用
         # # =====================================================
-        # {
-        #     "yaml": "ultralytics/cfg/models/11/yolo11-full.yaml",
-        #     "name": "Exp08_Full_DSNIM",
-        #     "use_dsnim": True,
-        # },
+        {
+            "yaml": "ultralytics/cfg/models/11/yolo11-full.yaml",
+            "name": "Exp08_Full_DSNIM",
+            "use_dsnim": True,
+        },
 
         # =====================================================
         # Table 5: 强基线对比
@@ -133,7 +133,7 @@ def main():
 
             # --- 训练策略 ---
             epochs=300,
-            patience=70,
+            patience=100,
 
             # --- 数据增强 (航拍适配) ---
             mosaic=1.0,

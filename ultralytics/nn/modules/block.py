@@ -2102,7 +2102,7 @@ class GCAM(nn.Module):
         reduction (int): 中间特征通道压缩比。
     """
 
-    def __init__(self, c1: int, c2: int, pool_sizes: tuple = (3, 5, 7), reduction: int = 16):
+    def __init__(self, c1: int, c2: int, pool_sizes: tuple = (2, 3, 5), reduction: int = 16):
         super().__init__()
         assert c1 == c2, f"GCAM requires c1 == c2, got {c1} vs {c2}"
         c_mid = max(c1 // reduction, 8)
@@ -2129,8 +2129,8 @@ class GCAM(nn.Module):
         # 恢复通道的 1x1 卷积
         self.cv_out = Conv(c1, c2, 1, 1)
 
-        # 可学习的残差缩放因子，初始化为 0.05（更温和的初始值）
-        self.gamma = nn.Parameter(torch.tensor(0.05))
+        # 可学习的残差缩放因子，初始化为 0.2（提供足够的掩码调制信号）
+        self.gamma = nn.Parameter(torch.tensor(0.2))
         self.mask = None  # 存储全局掩码，供下游 DCRN 使用
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -2280,14 +2280,22 @@ class DCRN(nn.Module):
             nn.Conv2d(c1 // 4, 1, 3, 1, 1, bias=False),
         )
 
-        # 协同融合权重（可学习）
-        self.fuse_weight = nn.Parameter(torch.tensor(0.5))
+        # 协同融合权重（独立可学习，允许全局/局部同时增强）
+        self.fuse_weight_g = nn.Parameter(torch.tensor(0.0))
+        self.fuse_weight_l = nn.Parameter(torch.tensor(0.0))
+
+        # 掩码对齐模块: nearest 上采样 + learned conv 替代 bilinear 插值
+        self.mask_align = nn.Sequential(
+            nn.Conv2d(1, 1, 3, 1, 1, bias=False),
+            nn.BatchNorm2d(1),
+            nn.SiLU(),
+        )
 
         # 输出通道对齐
         self.cv_out = Conv(c1, c2, 1, 1)
 
-        # 可学习的残差缩放因子，初始化为 0.05（更温和的初始值）
-        self.gamma = nn.Parameter(torch.tensor(0.05))
+        # 可学习的残差缩放因子，初始化为 0.2（提供足够的调制信号）
+        self.gamma = nn.Parameter(torch.tensor(0.2))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """前向传播。
@@ -2304,17 +2312,19 @@ class DCRN(nn.Module):
         if self.gc_module is not None and self.gc_module.mask is not None:
             gc_mask = self.gc_module.mask  # (B, 1, h, w) - GCAM 层的分辨率
             if gc_mask.shape[2:] != (H, W):
-                gc_mask = F.interpolate(gc_mask, size=(H, W), mode="bilinear", align_corners=False)
-            global_attn = gc_mask  # 已经是 [0,1] 范围（GCAM 用了 Sigmoid）
+                gc_mask = F.interpolate(gc_mask, size=(H, W), mode="nearest")
+                gc_mask = torch.sigmoid(self.mask_align(gc_mask))
+            global_attn = gc_mask
         else:
             global_attn = torch.sigmoid(self.global_path(x))
 
         # 局部细节注意力 (B, 1, H, W)
         local_attn = torch.sigmoid(self.local_path(x))
 
-        # 协同融合: 加权组合全局和局部注意力
-        w = torch.sigmoid(self.fuse_weight)
-        combined_gate = w * global_attn + (1 - w) * local_attn
+        # 加法融合: 独立权重允许全局/局部同时增强
+        w_g = torch.sigmoid(self.fuse_weight_g)
+        w_l = torch.sigmoid(self.fuse_weight_l)
+        combined_gate = w_g * global_attn + w_l * local_attn
 
         # 动态调制 + 残差连接
         out = x + self.gamma * (combined_gate * x)
