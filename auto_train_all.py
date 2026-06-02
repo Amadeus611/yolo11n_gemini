@@ -28,16 +28,16 @@ def main():
             "name": "Exp02_GCAM_Only",
             "use_dsnim": False,
         },
-        # {
-        #     "yaml": "ultralytics/cfg/models/11/yolo11-lhde.yaml",
-        #     "name": "Exp03_LHDE_Only",
-        #     "use_dsnim": False,
-        # },
-        # {
-        #     "yaml": "ultralytics/cfg/models/11/yolo11-gcam-lhde.yaml",
-        #     "name": "Exp04_GCAM_LHDE_NoDCRN",
-        #     "use_dsnim": False,
-        # },
+        {
+            "yaml": "ultralytics/cfg/models/11/yolo11-lhde.yaml",
+            "name": "Exp03_LHDE_Only",
+            "use_dsnim": False,
+        },
+        {
+            "yaml": "ultralytics/cfg/models/11/yolo11-gcam-lhde.yaml",
+            "name": "Exp04_GCAM_LHDE_NoDCRN",
+            "use_dsnim": False,
+        },
         {
             "yaml": "ultralytics/cfg/models/11/yolo11-glam.yaml",
             "name": "Exp05_GL_SIM_Full",
@@ -47,24 +47,24 @@ def main():
         # =====================================================
         # Table 2: RAC-Net 副创新消融
         # =====================================================
-        # {
-        #     "yaml": "ultralytics/cfg/models/11/yolo11-racnet.yaml",
-        #     "name": "Exp06_RACNet_Only",
-        #     "use_dsnim": False,
-        # },
+        {
+            "yaml": "ultralytics/cfg/models/11/yolo11-racnet.yaml",
+            "name": "Exp06_RACNet_Only",
+            "use_dsnim": False,
+        },
 
-        # # =====================================================
-        # # Table 3: DS-NIM 损失函数消融
-        # # =====================================================
-        # {
-        #     "yaml": "ultralytics/cfg/models/11/yolo11-glam.yaml",
-        #     "name": "Exp07_GL_SIM_DSNIM",
-        #     "use_dsnim": True,
-        # },
+        # =====================================================
+        # Table 3: DS-NIM 损失函数消融
+        # =====================================================
+        {
+            "yaml": "ultralytics/cfg/models/11/yolo11-glam.yaml",
+            "name": "Exp07_GL_SIM_DSNIM",
+            "use_dsnim": True,
+        },
 
-        # # =====================================================
-        # # Table 4: 全部创新启用
-        # # =====================================================
+        # =====================================================
+        # Table 4: 全部创新启用
+        # =====================================================
         {
             "yaml": "ultralytics/cfg/models/11/yolo11-full.yaml",
             "name": "Exp08_Full_DSNIM",
@@ -74,11 +74,11 @@ def main():
         # =====================================================
         # Table 5: 强基线对比
         # =====================================================
-        # {
-        #     "yaml": "ultralytics/cfg/models/26/yolo26s.yaml",
-        #     "name": "Exp09_YOLO26s",
-        #     "use_dsnim": False,
-        # },
+        {
+            "yaml": "ultralytics/cfg/models/26/yolo26.yaml",
+            "name": "Exp09_YOLO26s",
+            "use_dsnim": False,
+        },
         # {
         #     "yaml": "ultralytics/cfg/models/rt-detr/rtdetr-l.yaml",
         #     "name": "Exp10_RTDETR_l",
@@ -120,7 +120,7 @@ def main():
             momentum=0.937,
             weight_decay=0.0005,
             cos_lr=True,
-            warmup_epochs=5,
+            warmup_epochs=6,
 
             # --- 损失权重 ---
             box=7.5,
@@ -133,13 +133,13 @@ def main():
 
             # --- 训练策略 ---
             epochs=300,
-            patience=100,
+            patience=0,
 
             # --- 数据增强 (航拍适配) ---
             mosaic=1.0,
             close_mosaic=40,
             mixup=0.0,
-            copy_paste=0.3,  # 启用 CopyPaste 增强，侧重 bus 类别
+            copy_paste=0.4,  # 启用 CopyPaste 增强，侧重 bus 类别
             degrees=25.0,
             scale=0.3,
             translate=0.1,
