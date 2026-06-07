@@ -400,6 +400,9 @@ class BaseTrainer:
         self._oom_retries = 0  # OOM auto-reduce counter for first epoch
         while True:
             self.epoch = epoch
+            model = unwrap_model(self.model)
+            model.epoch = epoch  # 供自定义动态损失读取当前训练轮次
+            model.total_epochs = self.epochs
             self.run_callbacks("on_train_epoch_start")
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")  # suppress 'Detected lr_scheduler.step() before optimizer.step()'
