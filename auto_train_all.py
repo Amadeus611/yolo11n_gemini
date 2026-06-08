@@ -20,26 +20,26 @@ def main():
             "name": "Exp02_GCAM_Only",
             "use_dsnim": False,
         },
-        # {
-        #     "yaml": "ultralytics/cfg/models/11/yolo11-lhde.yaml",
-        #     "name": "Exp03_LHDE_Only",
-        #     "use_dsnim": False,
-        # },
-        # {
-        #     "yaml": "ultralytics/cfg/models/11/yolo11-gcam-lhde.yaml",
-        #     "name": "Exp04_GCAM_LHDE_NoDCRN",
-        #     "use_dsnim": False,
-        # },
-        # {
-        #     "yaml": "ultralytics/cfg/models/11/yolo11-glam.yaml",
-        #     "name": "Exp05_GL_SIM_Full",
-        #     "use_dsnim": False,
-        # },
-        # {
-        #     "yaml": "ultralytics/cfg/models/11/yolo11-racnet.yaml",
-        #     "name": "Exp06_RACNet_Only",
-        #     "use_dsnim": False,
-        # },
+        {
+            "yaml": "ultralytics/cfg/models/11/yolo11-lhde.yaml",
+            "name": "Exp03_LHDE_Only",
+            "use_dsnim": False,
+        },
+        {
+            "yaml": "ultralytics/cfg/models/11/yolo11-gcam-lhde.yaml",
+            "name": "Exp04_GCAM_LHDE_NoDCRN",
+            "use_dsnim": False,
+        },
+        {
+            "yaml": "ultralytics/cfg/models/11/yolo11-glam.yaml",
+            "name": "Exp05_GL_SIM_Full",
+            "use_dsnim": False,
+        },
+        {
+            "yaml": "ultralytics/cfg/models/11/yolo11-racnet.yaml",
+            "name": "Exp06_RACNet_Only",
+            "use_dsnim": False,
+        },
         {
             "yaml": "ultralytics/cfg/models/11/yolo11-glam.yaml",
             "name": "Exp07_GL_SIM_DSNIM",
@@ -50,11 +50,11 @@ def main():
             "name": "Exp08_Full_DSNIM",
             "use_dsnim": True,
         },
-        # {
-        #     "yaml": "ultralytics/cfg/models/26/yolo26.yaml",
-        #     "name": "Exp09_YOLO26n",
-        #     "use_dsnim": False,
-        # },
+        {
+            "yaml": "ultralytics/cfg/models/11/yolo11-full.yaml",
+            "name": "Exp09_Full_NoDSNIM",
+            "use_dsnim": False,
+        },
     ]
 
     for i, exp in enumerate(experiments):
