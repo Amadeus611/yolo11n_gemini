@@ -369,14 +369,12 @@ class v8DetectionLoss:
             nwd_w = h.get('nwd_weight', 1.0) if isinstance(h, dict) else getattr(h, 'nwd_weight', 1.0)
             impd_w = h.get('inner_mpdiou_weight', 1.0) if isinstance(h, dict) else getattr(h, 'inner_mpdiou_weight', 1.0)
             ir = h.get('inner_ratio', 0.3) if isinstance(h, dict) else getattr(h, 'inner_ratio', 0.3)
-            ciou_w = h.get('ciou_weight', 0.5) if isinstance(h, dict) else getattr(h, 'ciou_weight', 0.5)
             self.bbox_loss = BboxLossDSNIM(
                 reg_max=m.reg_max,
                 use_dsnim=True,
                 nwd_weight=nwd_w,
                 inner_mpdiou_weight=impd_w,
                 inner_ratio=ir,
-                ciou_weight=ciou_w,
             ).to(device)
         else:
             self.bbox_loss = BboxLoss(m.reg_max).to(device)
@@ -1445,7 +1443,6 @@ class BboxLossDSNIM(nn.Module):
         nwd_weight: float = 1.0,
         inner_mpdiou_weight: float = 1.0,
         inner_ratio: float = 0.3,
-        ciou_weight: float = 0.5,
         alpha_start: float = 0.2,
         alpha_end: float = 0.8,
     ):
@@ -1455,7 +1452,6 @@ class BboxLossDSNIM(nn.Module):
         self.nwd_weight = nwd_weight
         self.inner_mpdiou_weight = inner_mpdiou_weight
         self.inner_ratio = inner_ratio
-        self.ciou_weight = ciou_weight
         self.alpha_start = alpha_start
         self.alpha_end = alpha_end
 
@@ -1471,8 +1467,8 @@ class BboxLossDSNIM(nn.Module):
     def _get_alpha(self) -> float:
         """计算动态权重 alpha。
 
-        alpha 从 alpha_start 线性衰减到 alpha_end。
-        alpha 越大越依赖 NWD（训练早期），越小越依赖 Inner-MPDIoU（训练后期）。
+        alpha 从 alpha_start 线性变化到 alpha_end。
+        当前公式中，alpha 越小越依赖 NWD，alpha 越大越依赖 Inner-MPDIoU。
         """
         progress = self.current_epoch / max(self.total_epochs - 1, 1)
         progress = min(max(progress, 0.0), 1.0)
@@ -1514,7 +1510,6 @@ class BboxLossDSNIM(nn.Module):
             target_fg = target_bboxes[fg_mask]
 
             alpha = self._get_alpha()
-            loss_ciou = 1.0 - bbox_iou(pred_fg, target_fg, xywh=False, CIoU=True)
 
             # NWD 损失（对小目标特别有效）
             loss_nwd = nwd_loss(pred_fg, target_fg)
@@ -1527,14 +1522,14 @@ class BboxLossDSNIM(nn.Module):
             loss_impd = loss_impd.clamp(min=0, max=2)
 
             # 动态加权组合
-            dynamic_aux = (
+            loss_iou = (
                 (1 - alpha) * self.nwd_weight * loss_nwd +
                 alpha * self.inner_mpdiou_weight * loss_impd
-            )
-            loss_iou = (self.ciou_weight * loss_ciou + (1 - self.ciou_weight) * dynamic_aux) * weight
+            ) * weight
             loss_iou = loss_iou.sum() / target_scores_sum
         else:
             # 默认 CIoU 损失
+            from ultralytics.utils.metrics import bbox_iou
             iou = bbox_iou(pred_bboxes[fg_mask], target_bboxes[fg_mask], xywh=False, CIoU=True)
             loss_iou = ((1.0 - iou) * weight).sum() / target_scores_sum
 
